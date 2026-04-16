@@ -16,7 +16,9 @@
 
 import argparse
 import csv
+import itertools
 import json
+import sys
 
 from typing import Iterable
 
@@ -25,6 +27,7 @@ DUPLICATED_TRAITS = {
     "doctor": "physician",
     "augments": "augment",
     "kca": "klingon-cardassian alliance",
+    "sona": "son'a",
 }
 
 
@@ -362,15 +365,28 @@ args = vars(parser.parse_args())
 
 slot_list = ["one", "two", "three", "four", "five"]
 
-traits = [t.strip().lower() for t in parse_csv_string(args["traits"])]
+with open(args["filename"], "r", encoding="utf-8") as f:
+    all_crew = [Crewmember(crewmember) for crewmember in json.load(f)]
+
+valid_traits = Traits(itertools.chain(*[
+    crewmember.traits for crewmember in all_crew
+]))
+
+traits = Traits(parse_csv_string(args["traits"]))
+
+invalid_traits = Traits([
+    trait for trait in traits if trait and trait not in valid_traits
+])
+
+if invalid_traits:
+    print(f"The following traits are invalid: {invalid_traits}", file=sys.stderr)
+    exit(-1)
+
 crew_slots = {k: Traits(parse_csv_string(args.get(k, ""))) for k in slot_list}
 exclusions = [
     crewmember.lower().strip()
     for crewmember in parse_csv_string(args.get("exclude", ""))
 ]
-
-with open(args["filename"], "r", encoding="utf-8") as f:
-    all_crew = [Crewmember(crewmember) for crewmember in json.load(f)]
 
 crew = filter_crew_for_level(args["level"], all_crew)
 
