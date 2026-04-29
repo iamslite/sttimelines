@@ -232,6 +232,92 @@ def filter_crew_for_level(level: int, crew: list) -> list:
     return [crewmember for crewmember in crew if crewmember["max_rarity"] <= level]
 
 
+def filter_rosters_by_exclusions(
+    rosters: dict[Roster],
+    exclude: set[str]
+) -> dict[Roster]:
+    return {
+        trait: roster for (trait, roster) in rosters.items() if exclude not in roster
+    }
+
+
+def is_roster_count_in_range(
+    roster: Roster,
+    min_length: int = 1,
+    max_length: int | None = None,
+) -> bool:
+    roster_length = len(roster)
+
+    if roster_length < min_length:
+        return False
+
+    if max_length and roster_length > max_length:
+        return False
+
+    return True
+
+
+def filter_rosters_by_count(
+    rosters: list[Roster],
+    min_length: int = 1,
+    max_length: int | None = None,
+) -> dict[Roster]:
+    return {
+        traits: roster for (traits, roster) in rosters.items() if is_roster_count_in_range(
+            roster,
+            min_length,
+            max_length,
+        )
+    }
+
+
+def filter_singletons_from_node(
+    node: Node,
+    node_index: int,
+    nodes: list[Node],
+) -> Node:
+    filtered_node = copy(node)
+
+    filtered_node.rosters = filter_rosters_by_count(filtered_node.rosters, 2)
+
+    return filtered_node
+
+
+def filter_empty_from_node(
+    node: Node,
+    node_index: int,
+    nodes: list[Node],
+) -> Node:
+    filtered_node = copy(node)
+
+    filtered_node.rosters = filter_rosters_by_count(filtered_node.rosters, 1)
+
+    return filtered_node
+
+
+def filter_exclusions_from_node(
+    node: Node,
+    node_index: int,
+    nodes: list[Node],
+) -> Node:
+    filtered_node = copy(node)
+
+    filtered_node.rosters = filter_rosters_by_exclusions(filtered_node.rosters, exclusions)
+
+    return filtered_node
+
+
+def filter_nodes(nodes: list[Node], filters: list) -> list[Node]:
+    filtered_nodes = nodes
+
+    for filter in filters:
+        filtered_nodes = [
+            filter(node, index, filtered_nodes) for (index, node) in enumerate(filtered_nodes)
+        ]
+
+    return filtered_nodes
+
+
 def find_trait_combinations(possible_traits: list, num_missing_traits) -> set:
     combinations = set()
 
@@ -389,6 +475,14 @@ parser.add_argument(
     type=bool,
     default=False,
 )
+parser.add_argument(
+    "--keepsingletons",
+    "--keep-singletons",
+    action=argparse.BooleanOptionalAction,
+    help="Keep rosters that contain just a single entry",
+    type=bool,
+    default=False,
+)
 args = vars(parser.parse_args())
 
 node_names = ["one", "two", "three", "four", "five"]
@@ -418,6 +512,11 @@ chain_nodes = [
     ) for name in node_names
 ]
 
+exclusions = set(
+    crewmember.strip()
+    for crewmember in parse_csv_string(args.get("exclude", ""))
+)
+
 crew = filter_crew_for_level(args["level"], all_crew)
 
 nodes_with_rosters = [
@@ -426,7 +525,19 @@ nodes_with_rosters = [
     if node
 ]
 
-for node in nodes_with_rosters:
+filter_list = []
+
+if exclusions:
+    filter_list.append(filter_exclusions_from_node)
+
+if args.get('keepsingletons'):
+    filter_list.append(filter_empty_from_node)
+else:
+    filter_list.append(filter_singletons_from_node)
+
+filtered_nodes = filter_nodes(nodes_with_rosters, filter_list)
+
+for node in filtered_nodes:
     print(f"\nSlot {node.name}\n============")
 
     sep = "" if args["oneline"] else "\n "
@@ -434,7 +545,7 @@ for node in nodes_with_rosters:
     for (t, m) in node.rosters.items():
         print(f"{t} ({len(m)}):{sep} {m}")
 
-crew_occurrences = build_crew_occurrences(nodes_with_rosters)
+crew_occurrences = build_crew_occurrences(filtered_nodes)
 repeated_occurrences = [
     occurrences for occurrences in crew_occurrences.values() if len(occurrences) > 1
 ]
