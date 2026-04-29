@@ -28,6 +28,15 @@ DUPLICATED_TRAITS = {
     "augments": "augment",
     "kca": "klingon-cardassian alliance",
     "sona": "son'a",
+    "lotian": "iotian",
+    "q": "q continuum",
+    "jnaii": "j'naii",
+    "ramatis 3 native": "ramatis iii native",
+    "loqueeque": "loque'eque",
+    "m113 creature": "m-113 creature",
+    "rongovian": "r'ongovian",
+    "jemhadar": "jem'hadar",
+    "elaurian": "el-aurian",
 }
 
 
