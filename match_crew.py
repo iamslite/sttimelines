@@ -20,6 +20,7 @@ import itertools
 import json
 import sys
 
+from copy import deepcopy, copy
 from typing import Iterable
 
 
@@ -200,6 +201,25 @@ class Occurrence:
         return hash(f"{self.slot};{self.crewmember};{self.traits}")
 
 
+class Node:
+    def __init__(self, name: str, traits: Traits|list[str]):
+        self.name = name
+        self.traits = traits if isinstance(traits, Traits) else Traits(traits)
+        self.rosters = None
+
+    def __iter__(self):
+        return iter(self.rosters or [])
+
+    def __len__(self):
+        return len(self.rosters) if self.rosters else 0
+
+    def __bool__(self):
+        return self.traits.num_unknown_traits > 0
+
+    def __repr__(self):
+        return f"{self.name}: [{self.traits}] => {self.rosters}\n"
+
+
 def parse_csv_string(csv_data: str) -> str:
     if not csv_data:
         return []
@@ -268,31 +288,32 @@ def find_crew_by_traits(
     return crew_by_traits
 
 
-def find_crew_for_slot(
-    crew: list[Crewmember], slot_traits: Traits, exclusions: list[str] = []
-):
-    possible_traits = [trait for trait in traits if trait not in slot_traits]
+def find_crew_for_node(
+    crew: list[Crewmember], node: Node
+) -> Node:
+    possible_traits = [trait for trait in traits if trait not in node.traits]
 
     trait_combinations = find_trait_combinations(
-        possible_traits, slot_traits.num_unknown_traits
+        possible_traits, node.traits.num_unknown_traits
     )
 
-    crew_rosters = find_crew_by_traits(crew, slot_traits, trait_combinations)
+    crew_rosters = find_crew_by_traits(crew, node.traits, trait_combinations)
 
-    filtered = {t: m for (t, m) in crew_rosters.items() if m and not exclusions in m}
+    updated_node = deepcopy(node)
+    updated_node.rosters = crew_rosters
 
-    return filtered
+    return updated_node
 
 
 def build_crew_occurrences(
-    crew_for_slots: dict[str, dict[Traits, list[Crewmember]]]
+    nodes: dict[str, Node]
 ) -> dict[Crewmember, list[Occurrence]]:
     occurrences = {}
 
-    for slot, rosters in crew_for_slots.items():
-        for traits, roster in rosters.items():
+    for node in nodes:
+        for traits, roster in node.rosters.items():
             for crewmember in roster:
-                occurrence = Occurrence(slot, crewmember, traits)
+                occurrence = Occurrence(node.name, crewmember, traits)
 
                 if not crewmember in occurrences:
                     occurrences[crewmember] = []
@@ -370,7 +391,7 @@ parser.add_argument(
 )
 args = vars(parser.parse_args())
 
-slot_list = ["one", "two", "three", "four", "five"]
+node_names = ["one", "two", "three", "four", "five"]
 
 with open(args["filename"], "r", encoding="utf-8") as f:
     all_crew = [Crewmember(crewmember) for crewmember in json.load(f)]
@@ -389,29 +410,31 @@ if invalid_traits:
     print(f"The following traits are invalid: {invalid_traits}", file=sys.stderr)
     exit(-1)
 
-crew_slots = {k: Traits(parse_csv_string(args.get(k, ""))) for k in slot_list}
-exclusions = [
-    crewmember.lower().strip()
-    for crewmember in parse_csv_string(args.get("exclude", ""))
+
+chain_nodes = [
+    Node(
+        name,
+        Traits(parse_csv_string(args.get(name, ""))),
+    ) for name in node_names
 ]
 
 crew = filter_crew_for_level(args["level"], all_crew)
 
-crew_for_slots = {
-    slot: find_crew_for_slot(crew, crew_slots[slot], exclusions)
-    for slot in slot_list
-    if crew_slots[slot]
-}
+nodes_with_rosters = [
+    find_crew_for_node(crew, node)
+    for node in chain_nodes
+    if node
+]
 
-for (slot, crew_for_slot) in crew_for_slots.items():
-    print(f"\nSlot {slot}\n============")
+for node in nodes_with_rosters:
+    print(f"\nSlot {node.name}\n============")
 
     sep = "" if args["oneline"] else "\n "
 
-    for (t, m) in crew_for_slot.items():
+    for (t, m) in node.rosters.items():
         print(f"{t} ({len(m)}):{sep} {m}")
 
-crew_occurrences = build_crew_occurrences(crew_for_slots)
+crew_occurrences = build_crew_occurrences(nodes_with_rosters)
 repeated_occurrences = [
     occurrences for occurrences in crew_occurrences.values() if len(occurrences) > 1
 ]
