@@ -151,16 +151,14 @@ class Crewmember:
 
 
 class Roster:
-    def __init__(self, crew: list[Crewmember]):
-        self.crew = crew
+    def __init__(self, crew: set[Crewmember] | list[Crewmember]):
+        self.crew = crew if isinstance(crew, set) else set(crew)
 
     def __contains__(self, item) -> bool:
-        crewmembers = [item] if isinstance(item, str) else item
+        crewmembers = set(item) if isinstance(item, str) else item
 
         try:
-            for crewmember in crewmembers:
-                if crewmember in self.crew:
-                    return True
+            return len(self.crew & crewmembers) > 0
         except:
             pass
 
@@ -173,7 +171,7 @@ class Roster:
         return self.__str__()
 
     def __str__(self):
-        return f"{'; '.join([str(crewmember) for crewmember in self.crew])}"
+        return f"{'; '.join([str(crewmember) for crewmember in self.crew])}" if self.crew else "None"
 
     def __len__(self):
         return len(self.crew)
