@@ -428,3 +428,6 @@ for crew_occurrences in repeated_occurrences:
     print(
         f"{crew_occurrences[0].crewmember} ({len(crew_occurrences)}): [{'; '.join(instances)} ]"
     )
+
+if len(repeated_occurrences) == 0:
+    print("None")
