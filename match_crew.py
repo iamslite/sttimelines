@@ -159,10 +159,15 @@ class Roster:
         self.crew = crew if isinstance(crew, set) else set(crew)
 
     def __contains__(self, item) -> bool:
-        crewmembers = set(item) if isinstance(item, str) else item
+        items_set = set(item) if isinstance(item, str) else item
 
         try:
-            return len(self.crew & crewmembers) > 0
+            flattened_items = set([str(crewmember).lower() for crewmember in items_set])
+            flattened_crew = set([str(crewmember).lower() for crewmember in self.crew])
+
+            intersect = flattened_crew & flattened_items
+
+            return len(intersect) > 0
         except:
             pass
 
