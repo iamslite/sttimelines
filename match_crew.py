@@ -38,6 +38,9 @@ DUPLICATED_TRAITS = {
     "rongovian": "r'ongovian",
     "jemhadar": "jem'hadar",
     "elaurian": "el-aurian",
+    "baul": "ba'ul",
+    "baku": "ba'ku",
+    "section31": "section 31",
 }
 
 
