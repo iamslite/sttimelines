@@ -568,7 +568,7 @@ for crew_occurrences in repeated_occurrences:
         f"{occurrence.slot} - {occurrence.traits}" for occurrence in crew_occurrences
     ]
     print(
-        f"{crew_occurrences[0].crewmember} ({len(crew_occurrences)}): [{'; '.join(instances)} ]"
+        f"{crew_occurrences[0].crewmember} ({len(crew_occurrences)}): [ {'; '.join(instances)} ]"
     )
 
 if len(repeated_occurrences) == 0:
